@@ -1,15 +1,14 @@
-use std::any::{Any, TypeId};
-use std::fmt::format;
-use std::thread;
-
 use poise::serenity_prelude::{
-    self as serenity, Builder, CacheHttp, ChannelType, CreateMessage, CreateModal, CreateThread,
-    EditMessage, EditThread, GetMessages, MessageType, ModalInteractionData,
+    self as serenity, ChannelType, CreateMessage, CreateThread, EditMessage, EditThread,
+    GetMessages,
 };
 use poise::Modal;
 type ApplicationContext<'a> = poise::ApplicationContext<'a, Data, Error>;
-struct Data {} // User data, which is stored and accessible in all command invocations
+struct Data {}
 type Error = Box<dyn std::error::Error + Send + Sync>;
+
+mod rest;
+mod structs;
 
 #[tokio::main]
 async fn main() {
@@ -56,11 +55,6 @@ struct EditTopModal {
     #[paragraph]
     beschreibung: Option<String>,
 }
-impl EditTopModal {
-    fn new(name: String, beschreibung: Option<String>) -> Self {
-        Self { name, beschreibung }
-    }
-}
 
 #[poise::command(slash_command)]
 pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
@@ -74,20 +68,31 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
 
     let channel_id = ctx.interaction.channel_id;
 
-    let builder = CreateMessage::new().content(&name).tts(true);
+    let builder = CreateMessage::new().content(&name).tts(false);
     let message = channel_id.send_message(&ctx.http(), builder).await;
 
-    let builder = CreateThread::new(name);
+    let builder = CreateThread::new(&name);
     let thread = channel_id
         .create_thread_from_message(&ctx.http(), message.unwrap().id, builder)
         .await;
 
-    let builder = CreateMessage::new().content(beschreibung).tts(true);
+    let builder = CreateMessage::new().content(&beschreibung).tts(true);
     thread
         .unwrap()
         .id
         .send_message(&ctx.http(), builder)
         .await?;
+
+    //TODO: Implement begruendung
+
+    let antrag = structs::Antrag {
+        titel: name,
+        antragstext: beschreibung,
+        begrundung: "Keine Begründung".to_string(),
+        antragsteller: ctx.author().name.to_string(),
+    };
+
+    rest::create_antrag(antrag);
 
     Ok(())
 }
@@ -145,6 +150,16 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         let builder = EditMessage::new().content(&name);
         parentmessage.edit(&ctx.http(), builder).await?;
     }
+
+    //TODO: maybe antragssteller should not be overritten
+    let antrag = structs::Antrag {
+        titel: name,
+        antragstext: beschreibung,
+        begrundung: "Keine Begründung".to_string(),
+        antragsteller: ctx.author().name.to_string(),
+    };
+
+    rest::edit_antrag(antrag);
 
     Ok(())
 }
