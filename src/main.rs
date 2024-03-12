@@ -1,9 +1,10 @@
 use std::any::{Any, TypeId};
 use std::fmt::format;
+use std::thread;
 
 use poise::serenity_prelude::{
     self as serenity, Builder, CacheHttp, ChannelType, CreateMessage, CreateModal, CreateThread,
-    EditMessage, EditThread, GetMessages, ModalInteractionData,
+    EditMessage, EditThread, GetMessages, MessageType, ModalInteractionData,
 };
 use poise::Modal;
 type ApplicationContext<'a> = poise::ApplicationContext<'a, Data, Error>;
@@ -136,11 +137,13 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let messagetype = message.kind;
 
     //if the message is a thread starter message, edit the content
-    ctx.say(&format!("Message type: {:?}", messagetype)).await?;
 
     if messagetype == serenity::model::channel::MessageType::ThreadStarterMessage {
+        let threadid = channel.id;
+        let parentchannel = channel.parent_id.unwrap();
+        let mut parentmessage = parentchannel.message(&ctx.http(), threadid.get()).await?;
         let builder = EditMessage::new().content(&name);
-        message.edit(&ctx.http(), builder).await?;
+        parentmessage.edit(&ctx.http(), builder).await?;
     }
 
     Ok(())
