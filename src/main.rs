@@ -40,9 +40,13 @@ struct CreateTopModal {
     #[name = "Top Name"]
     #[placeholder = ""]
     name: String,
-    #[name = "Beschreibung"]
+    #[name = "Antragstext"]
     #[paragraph]
-    beschreibung: Option<String>,
+    #[placeholder = "Der Fachschaftsrat Informatik möge beschließen, dass:"]
+    antragstext: Option<String>,
+    #[name = "Begründung"]
+    #[paragraph]
+    begründung: Option<String>,
 }
 
 #[derive(Debug, Modal, Default)]
@@ -51,48 +55,68 @@ struct EditTopModal {
     #[name = "Top Name"]
     #[placeholder = ""]
     name: String,
-    #[name = "Beschreibung"]
+    #[name = "Antragstext"]
+    #[placeholder = "Der Fachschaftsrat Informatik möge beschließen, dass:"]
     #[paragraph]
-    beschreibung: Option<String>,
+    antragstext: Option<String>,
+    #[name = "Begründung"]
+    begründung: Option<String>,
 }
 
 #[poise::command(slash_command)]
 pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
-    let top = CreateTopModal::execute(ctx).await?.unwrap();
+    let top = CreateTopModal::execute_with_defaults(
+        ctx,
+        CreateTopModal {
+            antragstext: Some("Der Fachschaftsrat Informatik möge beschließen, dass:".to_string()),
+            ..Default::default()
+        },
+    )
+    .await?
+    .unwrap();
 
     let name = top.name;
-    let beschreibung = String::from("Beschreibung: \r")
+    let antragstext = &top
+        .antragstext
+        .unwrap_or_else(|| "Keine Beschreibung".to_string());
+
+    let begruendung = String::from("Begründung: \r")
         + &top
-            .beschreibung
-            .unwrap_or_else(|| "Keine Beschreibung".to_string());
+            .begründung
+            .unwrap_or_else(|| "Keine Begründung".to_string());
 
     let channel_id = ctx.interaction.channel_id;
 
-    let builder = CreateMessage::new().content(&name).tts(false);
+    let builder = CreateMessage::new()
+        .content(name.clone() + " - " + &ctx.author().name.clone())
+        .tts(false);
     let message = channel_id.send_message(&ctx.http(), builder).await;
 
     let builder = CreateThread::new(&name);
     let thread = channel_id
         .create_thread_from_message(&ctx.http(), message.unwrap().id, builder)
-        .await;
+        .await
+        .unwrap();
 
-    let builder = CreateMessage::new().content(&beschreibung).tts(true);
-    thread
-        .unwrap()
-        .id
-        .send_message(&ctx.http(), builder)
-        .await?;
+    let builder = CreateMessage::new()
+        .content(antragstext.to_string())
+        .tts(true);
+    thread.clone().id.send_message(&ctx.http(), builder).await?;
 
-    //TODO: Implement begruendung
+    let builder = CreateMessage::new().content(&begruendung).tts(true);
+    thread.id.send_message(&ctx.http(), builder).await?;
 
     let antrag = structs::Antrag {
         titel: name,
-        antragstext: beschreibung,
-        begrundung: "Keine Begründung".to_string(),
-        antragsteller: ctx.author().name.to_string(),
+        antragstext: antragstext.to_string(),
+        begründung: begruendung,
+        antragssteller: ctx.author().name.clone(),
     };
 
-    rest::create_antrag(antrag);
+    let resp = rest::create_antrag(antrag).await;
+    if resp == "Noch keine Sitzung geplant" {
+        return Err("Noch keine Sitzung geplant".into());
+    }
 
     Ok(())
 }
@@ -117,25 +141,33 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         ctx,
         EditTopModal {
             name: channel.clone().name,
-            beschreibung: Some(messages[1].content.replace("Beschreibung: \r", "")),
+            antragstext: Some(messages[1].content.to_string()),
+            begründung: Some(messages[2].content.replace("Begründung: \r", "")),
         },
     )
     .await?
     .unwrap();
 
     let name = modal.name;
-    let beschreibung = String::from("Beschreibung: \r")
+    let antragstext = &modal
+        .antragstext
+        .unwrap_or_else(|| "Keine Beschreibung".to_string());
+
+    let begruendung = String::from("Begründung: \r")
         + &modal
-            .beschreibung
-            .unwrap_or_else(|| "Keine Beschreibung".to_string());
+            .begründung
+            .unwrap_or_else(|| "Keine Begründung".to_string());
 
     //edit thread title
     let editthread = EditThread::new().name(&name);
     channel.edit_thread(&ctx.http(), editthread).await?;
 
     //edit the messages
-    let builder = EditMessage::new().content(&beschreibung);
+    let builder = EditMessage::new().content(antragstext.to_string());
     messages[1].edit(&ctx.http(), builder).await?;
+
+    let builder = EditMessage::new().content(&begruendung);
+    messages[2].edit(&ctx.http(), builder).await?;
 
     //get the message that startet the thread
     let message = channel.id.message(&ctx.http(), messages[0].id).await?;
@@ -147,16 +179,16 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         let threadid = channel.id;
         let parentchannel = channel.parent_id.unwrap();
         let mut parentmessage = parentchannel.message(&ctx.http(), threadid.get()).await?;
-        let builder = EditMessage::new().content(&name);
+        let builder = EditMessage::new().content(name.clone() + " - " + &ctx.author().name.clone());
         parentmessage.edit(&ctx.http(), builder).await?;
     }
 
     //TODO: maybe antragssteller should not be overritten
     let antrag = structs::Antrag {
         titel: name,
-        antragstext: beschreibung,
-        begrundung: "Keine Begründung".to_string(),
-        antragsteller: ctx.author().name.to_string(),
+        antragstext: antragstext.to_string(),
+        begründung: begruendung,
+        antragssteller: ctx.author().name.clone(),
     };
 
     rest::edit_antrag(antrag);

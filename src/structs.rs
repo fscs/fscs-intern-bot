@@ -3,6 +3,6 @@ use serde::Serialize;
 pub struct Antrag {
     pub titel: String,
     pub antragstext: String,
-    pub begrundung: String,
-    pub antragsteller: String,
+    pub begründung: String,
+    pub antragssteller: String,
 }
