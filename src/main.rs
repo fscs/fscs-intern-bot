@@ -4,9 +4,13 @@ use poise::serenity_prelude::{
 };
 use poise::Modal;
 type ApplicationContext<'a> = poise::ApplicationContext<'a, Data, Error>;
-struct Data {}
+#[derive(Debug)]
+pub struct Data {
+    conn: sqlx::SqlitePool,
+}
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
+mod database;
 mod rest;
 mod structs;
 
@@ -23,7 +27,9 @@ async fn main() {
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                Ok(Data {})
+                Ok(Data {
+                    conn: database::connect().await.expect(""),
+                })
             })
         })
         .build();
@@ -43,7 +49,7 @@ struct CreateTopModal {
     #[name = "Antragstext"]
     #[paragraph]
     #[placeholder = "Der Fachschaftsrat Informatik möge beschließen, dass:"]
-    antragstext: Option<String>,
+    antragstext: String,
     #[name = "Begründung"]
     #[paragraph]
     begründung: Option<String>,
@@ -58,8 +64,9 @@ struct EditTopModal {
     #[name = "Antragstext"]
     #[placeholder = "Der Fachschaftsrat Informatik möge beschließen, dass:"]
     #[paragraph]
-    antragstext: Option<String>,
+    antragstext: String,
     #[name = "Begründung"]
+    #[paragraph]
     begründung: Option<String>,
 }
 
@@ -68,7 +75,7 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let top = CreateTopModal::execute_with_defaults(
         ctx,
         CreateTopModal {
-            antragstext: Some("Der Fachschaftsrat Informatik möge beschließen, dass:".to_string()),
+            antragstext: "Der Fachschaftsrat Informatik möge beschließen, dass:".to_string(),
             ..Default::default()
         },
     )
@@ -76,9 +83,9 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     .unwrap();
 
     let name = top.name;
-    let antragstext = &top
-        .antragstext
-        .unwrap_or_else(|| "Keine Beschreibung".to_string());
+    let antragstext = &top.antragstext;
+
+    let antragssteller = database::get_name(ctx.data().conn.clone(), ctx.author().id).await?;
 
     let begruendung = String::from("Begründung: \r")
         + &top
@@ -88,7 +95,7 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let channel_id = ctx.interaction.channel_id;
 
     let builder = CreateMessage::new()
-        .content(name.clone() + " - " + &ctx.author().name.clone())
+        .content(name.clone() + " - " + &antragssteller.name)
         .tts(false);
     let message = channel_id.send_message(&ctx.http(), builder).await;
 
@@ -107,16 +114,18 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     thread.id.send_message(&ctx.http(), builder).await?;
 
     let antrag = structs::Antrag {
+        id: None,
         titel: name,
         antragstext: antragstext.to_string(),
         begründung: begruendung,
-        antragssteller: ctx.author().name.clone(),
+        antragssteller: Some(antragssteller.name),
     };
 
     let resp = rest::create_antrag(antrag).await;
-    if resp == "Noch keine Sitzung geplant" {
-        return Err("Noch keine Sitzung geplant".into());
-    }
+
+    let _ =
+        database::map_antrag_thread(ctx.data().conn.clone(), resp.id.unwrap(), thread.id.into())
+            .await;
 
     Ok(())
 }
@@ -141,7 +150,7 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         ctx,
         EditTopModal {
             name: channel.clone().name,
-            antragstext: Some(messages[1].content.to_string()),
+            antragstext: messages[1].content.to_string(),
             begründung: Some(messages[2].content.replace("Begründung: \r", "")),
         },
     )
@@ -149,9 +158,7 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     .unwrap();
 
     let name = modal.name;
-    let antragstext = &modal
-        .antragstext
-        .unwrap_or_else(|| "Keine Beschreibung".to_string());
+    let antragstext = &modal.antragstext;
 
     let begruendung = String::from("Begründung: \r")
         + &modal
@@ -185,13 +192,16 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
 
     //TODO: maybe antragssteller should not be overritten
     let antrag = structs::Antrag {
+        id: database::get_antrag_thread(ctx.data().conn.clone(), channel.id.into())
+            .await
+            .unwrap(),
         titel: name,
         antragstext: antragstext.to_string(),
         begründung: begruendung,
-        antragssteller: ctx.author().name.clone(),
+        antragssteller: Some(ctx.author().name.clone()),
     };
 
-    rest::edit_antrag(antrag);
+    rest::edit_antrag(antrag).await;
 
     Ok(())
 }
