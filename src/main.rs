@@ -11,6 +11,7 @@ pub struct Data {
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
 mod database;
+mod keycloak;
 mod rest;
 mod structs;
 
