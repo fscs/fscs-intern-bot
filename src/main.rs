@@ -88,10 +88,9 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
 
     let antragssteller = database::get_name(ctx.data().conn.clone(), ctx.author().id).await?;
 
-    let begruendung = String::from("Begründung: \r")
-        + &top
-            .begründung
-            .unwrap_or_else(|| "Keine Begründung".to_string());
+    let begruendung = &top
+        .begründung
+        .unwrap_or_else(|| "Keine Begründung".to_string());
 
     let channel_id = ctx.interaction.channel_id;
 
@@ -111,14 +110,16 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         .tts(true);
     thread.clone().id.send_message(&ctx.http(), builder).await?;
 
-    let builder = CreateMessage::new().content(&begruendung).tts(true);
+    let builder = CreateMessage::new()
+        .content(&format!("Begründung: \r{}", begruendung))
+        .tts(true);
     thread.id.send_message(&ctx.http(), builder).await?;
 
     let antrag = structs::Antrag {
         id: None,
         titel: name,
         antragstext: antragstext.to_string(),
-        begründung: begruendung,
+        begründung: begruendung.to_string(),
         antragssteller: Some(antragssteller.name),
     };
 
