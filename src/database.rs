@@ -3,10 +3,12 @@ use serde::{Deserialize, Serialize};
 use sqlx::{migrate::MigrateDatabase, Connection, Executor, Sqlite, SqliteConnection, SqlitePool};
 use uuid::Uuid;
 
+use crate::{rest, structs::Person};
+
 #[derive(Debug, sqlx::FromRow)]
 pub struct User {
     pub discord_id: i64,
-    pub name: String,
+    pub person_id: String,
 }
 
 pub async fn connect() -> Result<SqlitePool, sqlx::Error> {
@@ -29,13 +31,21 @@ pub async fn connect() -> Result<SqlitePool, sqlx::Error> {
     Ok(conn)
 }
 
-pub async fn get_name(conn: SqlitePool, discord_id: UserId) -> Result<User, sqlx::Error> {
+pub async fn get_name(conn: SqlitePool, discord_id: UserId) -> Result<Person, sqlx::Error> {
     let userid = i64::from(discord_id);
     let name = sqlx::query_as::<_, User>("SELECT * FROM users WHERE discord_id = $1")
         .bind(userid)
         .fetch_one(&conn)
         .await?;
-    Ok(name)
+
+    let persons = rest::get_persons().await;
+
+    let person = persons
+        .iter()
+        .find(|person| person.id.to_string() == name.person_id)
+        .unwrap();
+
+    Ok(person.clone())
 }
 
 pub async fn map_antrag_thread(

@@ -206,3 +206,16 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
 
     Ok(())
 }
+
+#[poise::command(slash_command)]
+pub async fn abmelden(ctx: ApplicationContext<'_>) -> Result<(), Error> {
+    let channel_id = ctx.interaction.channel_id;
+    let person = database::get_name(ctx.data().conn.clone(), ctx.author().id).await?;
+    rest::put_abmeldung(person.name.clone()).await;
+
+    let builder = CreateMessage::new()
+        .content(format!("{} hat sich abgemeldet", person.name))
+        .tts(true);
+    channel_id.send_message(&ctx.http(), builder).await?;
+    Ok(())
+}

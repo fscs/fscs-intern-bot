@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS users (
     discord_id INTEGER NOT NULL, 
-    name VARCHAR(250) NOT NULL
+    person_id VARCHAR(250) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS antragsthreads (

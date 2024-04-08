@@ -88,8 +88,18 @@ impl KeycloakClient {
                 .unwrap(),
             ),
         )
-        .set_redirect_uri(RedirectUrl::new("http://localhost:8080/".to_string())?);
+        .set_redirect_uri(RedirectUrl::new("https://new.hhu-fscs.de/".to_string())?);
+        let token = client
+            .exchange_password(
+                &oauth2::ResourceOwnerUsername::new(user.clone()),
+                &oauth2::ResourceOwnerPassword::new(password.clone()),
+            )
+            .add_scope(Scope::new("openid".to_string()))
+            .request_async(async_http_client)
+            .await
+            .err();
 
+        println!("{:?}", token);
         let token = client
             .exchange_password(
                 &oauth2::ResourceOwnerUsername::new(user.clone()),
