@@ -162,10 +162,9 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let name = modal.name;
     let antragstext = &modal.antragstext;
 
-    let begruendung = String::from("Begründung: \r")
-        + &modal
-            .begründung
-            .unwrap_or_else(|| "Keine Begründung".to_string());
+    let begruendung = &modal
+        .begründung
+        .unwrap_or_else(|| "Keine Begründung".to_string());
 
     //edit thread title
     let editthread = EditThread::new().name(&name);
@@ -175,7 +174,7 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let builder = EditMessage::new().content(antragstext.to_string());
     messages[1].edit(&ctx.http(), builder).await?;
 
-    let builder = EditMessage::new().content(&begruendung);
+    let builder = EditMessage::new().content(&format!("Begründung: \r{}", begruendung));
     messages[2].edit(&ctx.http(), builder).await?;
 
     //get the message that startet the thread
@@ -199,7 +198,7 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
             .unwrap(),
         titel: name,
         antragstext: antragstext.to_string(),
-        begründung: begruendung,
+        begründung: begruendung.to_string(),
         antragssteller: Some(ctx.author().name.clone()),
     };
 
