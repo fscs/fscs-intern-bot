@@ -188,7 +188,7 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         let threadid = channel.id;
         let parentchannel = channel.parent_id.unwrap();
         let mut parentmessage = parentchannel.message(&ctx.http(), threadid.get()).await?;
-        let builder = EditMessage::new().content(name.clone() + " - " + &ctx.author().name.clone());
+        let builder = EditMessage::new().content(name.clone() + " - " + &antragssteller.name);
         parentmessage.edit(&ctx.http(), builder).await?;
     }
 
