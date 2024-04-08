@@ -22,7 +22,7 @@ async fn main() {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![antrag(), edit()],
+            commands: vec![antrag(), edit(), abmelden()],
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
@@ -161,6 +161,7 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
 
     let name = modal.name;
     let antragstext = &modal.antragstext;
+    let antragssteller = database::get_name(ctx.data().conn.clone(), ctx.author().id).await?;
 
     let begruendung = &modal
         .begründung
@@ -199,7 +200,7 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         titel: name,
         antragstext: antragstext.to_string(),
         begründung: begruendung.to_string(),
-        antragssteller: Some(ctx.author().name.clone()),
+        antragssteller: Some(antragssteller.name),
     };
 
     rest::edit_antrag(antrag).await;
