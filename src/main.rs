@@ -1,8 +1,12 @@
+use std::time::Duration;
+
 use poise::serenity_prelude::{
     self as serenity, ChannelType, CreateMessage, CreateThread, EditMessage, EditThread,
-    GetMessages,
+    GetMessages, MessageFlags,
 };
-use poise::Modal;
+type Context<'a> = poise::Context<'a, Data, Error>;
+
+use poise::{CreateReply, Modal};
 type ApplicationContext<'a> = poise::ApplicationContext<'a, Data, Error>;
 #[derive(Debug)]
 pub struct Data {
@@ -86,7 +90,16 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let name = top.name;
     let antragstext = &top.antragstext;
 
-    let antragssteller = database::get_name(ctx.data().conn.clone(), ctx.author().id).await?;
+    let antragssteller = database::get_name(ctx.data().conn.clone(), ctx.author().id).await;
+
+    let Ok(antragssteller) = antragssteller else {
+        let builder = CreateMessage::new()
+            .content("Du bist nicht in der Datenbank")
+            .flags(MessageFlags::EPHEMERAL);
+        let channel_id = ctx.interaction.channel_id;
+        channel_id.send_message(&ctx.http(), builder).await?;
+        return Ok(());
+    };
 
     let begruendung = &top
         .begründung
@@ -111,7 +124,7 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     thread.clone().id.send_message(&ctx.http(), builder).await?;
 
     let builder = CreateMessage::new()
-        .content(&format!("Begründung: \r{}", begruendung))
+        .content(format!("Begründung: \r{}", begruendung))
         .tts(true);
     thread.id.send_message(&ctx.http(), builder).await?;
 
@@ -161,7 +174,16 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
 
     let name = modal.name;
     let antragstext = &modal.antragstext;
-    let antragssteller = database::get_name(ctx.data().conn.clone(), ctx.author().id).await?;
+    let antragssteller = database::get_name(ctx.data().conn.clone(), ctx.author().id).await;
+
+    let Ok(antragssteller) = antragssteller else {
+        let builder = CreateMessage::new()
+            .content("Du bist nicht in der Datenbank")
+            .flags(MessageFlags::EPHEMERAL);
+        let channel_id = ctx.interaction.channel_id;
+        channel_id.send_message(&ctx.http(), builder).await?;
+        return Ok(());
+    };
 
     let begruendung = &modal
         .begründung
@@ -175,7 +197,7 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let builder = EditMessage::new().content(antragstext.to_string());
     messages[1].edit(&ctx.http(), builder).await?;
 
-    let builder = EditMessage::new().content(&format!("Begründung: \r{}", begruendung));
+    let builder = EditMessage::new().content(format!("Begründung: \r{}", begruendung));
     messages[2].edit(&ctx.http(), builder).await?;
 
     //get the message that startet the thread
@@ -209,14 +231,18 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
 }
 
 #[poise::command(slash_command)]
-pub async fn abmelden(ctx: ApplicationContext<'_>) -> Result<(), Error> {
-    let channel_id = ctx.interaction.channel_id;
-    let person = database::get_name(ctx.data().conn.clone(), ctx.author().id).await?;
+async fn abmelden(ctx: ApplicationContext<'_>) -> Result<(), Error> {
+    let person = database::get_name(ctx.data().conn.clone(), ctx.author().id).await;
+    let Ok(person) = person else {
+        let builder = CreateMessage::new()
+            .content("Du bist nicht in der Datenbank")
+            .flags(MessageFlags::EPHEMERAL);
+        let channel_id = ctx.interaction.channel_id;
+        channel_id.send_message(&ctx.http(), builder).await?;
+        return Ok(());
+    };
     rest::put_abmeldung(person.name.clone()).await;
-
-    let builder = CreateMessage::new()
-        .content(format!("{} hat sich abgemeldet", person.name))
-        .tts(true);
-    channel_id.send_message(&ctx.http(), builder).await?;
+    let response = format!("{} hat sich abgemeldet!", person.name);
+    ctx.say(response).await?;
     Ok(())
 }
