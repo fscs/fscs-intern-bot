@@ -1,4 +1,4 @@
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
@@ -13,6 +13,13 @@ pub struct Antrag {
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone)]
 pub struct Person {
     pub id: Uuid,
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone)]
+pub struct Sitzung {
+    pub id: Uuid,
+    pub datum: NaiveDateTime,
     pub name: String,
 }
 
