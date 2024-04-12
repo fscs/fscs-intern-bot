@@ -131,7 +131,13 @@
                     pathsToLink = [ "/bin" ];
                 };
 
+                runAsRoot = ''
+                    #!${pkgs.runtimeShell}
+                    mkdir -p /data
+                '';
+
                 config = {
+                    WorkingDir = "/data";
                     Env = ["SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"];
                     Cmd = ["${defaultPackage}/bin/top-manager-discord"];
                 };

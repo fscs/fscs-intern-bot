@@ -27,7 +27,14 @@ pub async fn create_antrag(antrag: Antrag) -> Antrag {
     let response = reqwest::Client::new()
         .put(url + "/api/topmanager/antrag/")
         .header("Content-Type", "application/json")
-        .header("Cookie", &format!("access_token={}", token))
+        .header(
+            "Cookie",
+            &format!(
+                "access_token={}; refresh_token={}",
+                token.token.secret(),
+                token.refresh_token.secret()
+            ),
+        )
         .body(serde_json::to_string(&antrag).unwrap())
         .send()
         .await
@@ -49,7 +56,14 @@ pub async fn edit_antrag(antrag: Antrag) {
     let respo = reqwest::Client::new()
         .patch(url + "/api/topmanager/antrag/")
         .header("Content-Type", "application/json")
-        .header("Cookie", &format!("access_token={}", token))
+        .header(
+            "Cookie",
+            &format!(
+                "access_token={}; refresh_token={}",
+                token.token.secret(),
+                token.refresh_token.secret()
+            ),
+        )
         .body(serde_json::to_string(&antrag).unwrap())
         .send()
         .await
@@ -85,12 +99,17 @@ pub async fn put_abmeldung(name: String) {
             .expect("Person not found")
             .id,
     };
+    let token = keycloak::get_token().await.unwrap();
     let respo = reqwest::Client::new()
         .put(url + "/api/abmeldungen/")
         .header("Content-Type", "application/json")
         .header(
             "Cookie",
-            &format!("access_token={}", keycloak::get_token().await.unwrap()),
+            &format!(
+                "access_token={}; refresh_token={}",
+                token.token.secret(),
+                token.refresh_token.secret()
+            ),
         )
         .body(serde_json::to_string(&abmeldung).unwrap())
         .send()

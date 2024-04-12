@@ -10,6 +10,7 @@ use oauth2::CsrfToken;
 use oauth2::HttpRequest;
 use oauth2::PkceCodeChallenge;
 use oauth2::RedirectUrl;
+use oauth2::RefreshToken;
 use oauth2::Scope;
 use oauth2::TokenResponse;
 use serde_json::json;
@@ -32,8 +33,9 @@ struct KeycloakUser {
     enabled: bool,
 }
 
-struct KeycloakClient {
-    token: AccessToken,
+pub struct KeycloakClient {
+    pub token: AccessToken,
+    pub refresh_token: RefreshToken,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq)]
@@ -42,7 +44,7 @@ struct KeycloakRole {
     name: String,
 }
 
-pub async fn get_token() -> anyhow::Result<String> {
+pub async fn get_token() -> anyhow::Result<KeycloakClient> {
     let username_env = std::env::var("USERNAME").expect("No USERNAME set");
     let password_env = std::env::var("PASSWORD").expect("No PASSWORD set");
     let keycloak_config = KeycloakConfig {
@@ -59,7 +61,7 @@ pub async fn get_token() -> anyhow::Result<String> {
     )
     .await?;
 
-    Ok(client.token.secret().to_string())
+    Ok(client)
 }
 
 impl KeycloakClient {
@@ -111,6 +113,21 @@ impl KeycloakClient {
             .access_token()
             .clone();
 
-        Ok(KeycloakClient { token })
+        let refreshtoken = client
+            .exchange_password(
+                &oauth2::ResourceOwnerUsername::new(user.clone()),
+                &oauth2::ResourceOwnerPassword::new(password.clone()),
+            )
+            .add_scope(Scope::new("openid".to_string()))
+            .request_async(async_http_client)
+            .await?
+            .refresh_token()
+            .unwrap()
+            .clone();
+
+        Ok(KeycloakClient {
+            token,
+            refresh_token: refreshtoken,
+        })
     }
 }
