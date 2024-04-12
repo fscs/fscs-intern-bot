@@ -34,7 +34,7 @@ deploy-job:
   stage: deploy
   only:
       refs:
-        - main
+        - master
   trigger:
     project: fscs/teefax-config
     branch: main
