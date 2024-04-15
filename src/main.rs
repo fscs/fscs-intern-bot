@@ -262,7 +262,8 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         parentmessage.edit(&ctx.http(), builder).await?;
     }
 
-    let antrag = structs::EditAntrag {
+    //TODO: maybe Antragssteller should not be overwritten
+    let antrag = structs::Antrag {
         id: database::get_antrag_thread(ctx.data().conn.clone(), channel.id.into())
             .await
             .unwrap(),
