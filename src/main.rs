@@ -93,11 +93,9 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let antragssteller = database::get_name(ctx.data().conn.clone(), ctx.author().id).await;
 
     let Ok(antragssteller) = antragssteller else {
-        let builder = CreateMessage::new()
+        ctx.send(CreateReply::default()
             .content("Du bist nicht in der Datenbank")
-            .flags(MessageFlags::EPHEMERAL);
-        let channel_id = ctx.interaction.channel_id;
-        channel_id.send_message(&ctx.http(), builder).await?;
+            .ephemeral(true)).await.unwrap();
         return Ok(());
     };
 
