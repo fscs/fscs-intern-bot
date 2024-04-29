@@ -147,7 +147,7 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
 pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let mut channel = ctx.guild_channel().await.unwrap();
 
-    if channel.kind != ChannelType::PublicThread {
+    if channel.kind != ChannelType::PublicThread && channel.kind != ChannelType::PrivateThread && channel.kind != ChannelType::NewsThread {
         return Err("This command can only be used in a thread".into());
     }
 
@@ -199,7 +199,7 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     messages[2].edit(&ctx.http(), builder).await?;
 
     //get the message that startet the thread
-    let message = channel.id.message(&ctx.http(), messages[0].id).await?;
+   let message = channel.id.message(&ctx.http(), messages[0].id).await?;
     let messagetype = message.kind;
 
     //if the message is a thread starter message, edit the content
