@@ -66,7 +66,7 @@ struct EditTopModal {
     #[name = "Antragstitel"]
     #[placeholder = ""]
     name: String,
-    #[name = "Der Fachschaftsrat Informatik möge beschließen, dass"]
+    #[name = "Der FSR Informatik möge beschließen, dass"]
     #[placeholder = ""]
     #[paragraph]
     antragstext: String,
