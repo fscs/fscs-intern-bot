@@ -172,18 +172,16 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     .await?
     .unwrap();
 
+    let threadid = channel.id;
+    let parentchannel = channel.parent_id.unwrap();
+    let parentmessage = parentchannel.message(&ctx.http(), threadid.get()).await?;
+    let split: Vec<&str> = parentmessage.content.split(" - ").collect();
+    for i in &split {
+        println!("{}", i);
+    }
     let name = modal.name;
     let antragstext = &modal.antragstext;
-    let antragssteller = database::get_name(ctx.data().conn.clone(), ctx.author().id).await;
-
-    let Ok(antragssteller) = antragssteller else {
-        let builder = CreateMessage::new()
-            .content("Du bist nicht in der Datenbank")
-            .flags(MessageFlags::EPHEMERAL);
-        let channel_id = ctx.interaction.channel_id;
-        channel_id.send_message(&ctx.http(), builder).await?;
-        return Ok(());
-    };
+    let antragssteller = &split[&split.len() - 1].to_owned();
 
     let begruendung = &modal
         .begründung
@@ -210,11 +208,10 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         let threadid = channel.id;
         let parentchannel = channel.parent_id.unwrap();
         let mut parentmessage = parentchannel.message(&ctx.http(), threadid.get()).await?;
-        let builder = EditMessage::new().content(name.clone() + " - " + &antragssteller.name);
+        let builder = EditMessage::new().content(name.clone() + " - " + &antragssteller);
         parentmessage.edit(&ctx.http(), builder).await?;
     }
 
-    //TODO: maybe antragssteller should not be overritten
     let antrag = structs::Antrag {
         id: database::get_antrag_thread(ctx.data().conn.clone(), channel.id.into())
             .await
@@ -222,7 +219,7 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         titel: name,
         antragstext: antragstext.to_string(),
         begründung: begruendung.to_string(),
-        antragssteller: Some(antragssteller.name),
+        antragssteller: Some(antragssteller.to_string()),
     };
 
     rest::edit_antrag(antrag).await;
