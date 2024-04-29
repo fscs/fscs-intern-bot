@@ -46,14 +46,14 @@ async fn main() {
 }
 
 #[derive(Debug, Modal, Default)]
-#[name = "Top Erstellen"]
+#[name = "Antrag Erstellen"]
 struct CreateTopModal {
-    #[name = "Top Name"]
+    #[name = "Antragstitel"]
     #[placeholder = ""]
     name: String,
-    #[name = "Antragstext"]
+    #[name = "Der Fachschaftsrat Informatik möge beschließen, dass:"]
     #[paragraph]
-    #[placeholder = "Der Fachschaftsrat Informatik möge beschließen, dass:"]
+    #[placeholder = ""]
     antragstext: String,
     #[name = "Begründung"]
     #[paragraph]
@@ -61,13 +61,13 @@ struct CreateTopModal {
 }
 
 #[derive(Debug, Modal, Default)]
-#[name = "Top Editieren"]
+#[name = "Antrag Editieren"]
 struct EditTopModal {
-    #[name = "Top Name"]
+    #[name = "Antragstitel"]
     #[placeholder = ""]
     name: String,
-    #[name = "Antragstext"]
-    #[placeholder = "Der Fachschaftsrat Informatik möge beschließen, dass:"]
+    #[name = "Der Fachschaftsrat Informatik möge beschließen, dass"]
+    #[placeholder = ""]
     #[paragraph]
     antragstext: String,
     #[name = "Begründung"]
@@ -80,7 +80,7 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let top = CreateTopModal::execute_with_defaults(
         ctx,
         CreateTopModal {
-            antragstext: "Der Fachschaftsrat Informatik möge beschließen, dass:".to_string(),
+            antragstext: "".to_string(),
             ..Default::default()
         },
     )
@@ -88,7 +88,7 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     .unwrap();
 
     let name = top.name;
-    let antragstext = &top.antragstext;
+    let antragstext = format!("Der Fachschaftsrat Informatik möge beschließen, dass:\n {}", &top.antragstext);
 
     let antragssteller = database::get_name(ctx.data().conn.clone(), ctx.author().id).await;
 
@@ -117,7 +117,7 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         .unwrap();
 
     let builder = CreateMessage::new()
-        .content(antragstext.to_string())
+        .content(&antragstext)
         .tts(true);
     thread.clone().id.send_message(&ctx.http(), builder).await?;
 
@@ -129,7 +129,7 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let antrag = structs::Antrag {
         id: None,
         titel: name,
-        antragstext: antragstext.to_string(),
+        antragstext,
         begründung: begruendung.to_string(),
         antragssteller: Some(antragssteller.name),
     };
@@ -178,8 +178,10 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         println!("{}", i);
     }
     let name = modal.name;
-    let antragstext = &modal.antragstext;
+    
     let antragssteller = &split[&split.len() - 1].to_owned();
+
+    let antragstext = format!("Der Fachschaftsrat Informatik möge beschließen, dass:\n{}", &modal.antragstext);
 
     let begruendung = &modal
         .begründung
