@@ -93,11 +93,9 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let antragssteller = database::get_name(ctx.data().conn.clone(), ctx.author().id).await;
 
     let Ok(antragssteller) = antragssteller else {
-        let builder = CreateMessage::new()
+        ctx.send(CreateReply::default()
             .content("Du bist nicht in der Datenbank")
-            .flags(MessageFlags::EPHEMERAL);
-        let channel_id = ctx.interaction.channel_id;
-        channel_id.send_message(&ctx.http(), builder).await?;
+            .ephemeral(true)).await.unwrap();
         return Ok(());
     };
 
@@ -149,7 +147,7 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
 pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let mut channel = ctx.guild_channel().await.unwrap();
 
-    if channel.kind != ChannelType::PublicThread {
+    if channel.kind != ChannelType::PublicThread && channel.kind != ChannelType::PrivateThread && channel.kind != ChannelType::NewsThread {
         return Err("This command can only be used in a thread".into());
     }
 
@@ -199,7 +197,7 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     messages[2].edit(&ctx.http(), builder).await?;
 
     //get the message that startet the thread
-    let message = channel.id.message(&ctx.http(), messages[0].id).await?;
+   let message = channel.id.message(&ctx.http(), messages[0].id).await?;
     let messagetype = message.kind;
 
     //if the message is a thread starter message, edit the content
