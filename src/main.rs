@@ -88,14 +88,21 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     .unwrap();
 
     let name = top.name;
-    let antragstext = format!("Der Fachschaftsrat Informatik möge beschließen, dass:\n {}", &top.antragstext);
+    let antragstext = format!(
+        "Der Fachschaftsrat Informatik möge beschließen, dass:\n {}",
+        &top.antragstext
+    );
 
     let antragssteller = database::get_name(ctx.data().conn.clone(), ctx.author().id).await;
 
     let Ok(antragssteller) = antragssteller else {
-        ctx.send(CreateReply::default()
-            .content("Du bist nicht in der Datenbank")
-            .ephemeral(true)).await.unwrap();
+        ctx.send(
+            CreateReply::default()
+                .content("Du bist nicht in der Datenbank")
+                .ephemeral(true),
+        )
+        .await
+        .unwrap();
         return Ok(());
     };
 
@@ -116,9 +123,7 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         .await
         .unwrap();
 
-    let builder = CreateMessage::new()
-        .content(&antragstext)
-        .tts(true);
+    let builder = CreateMessage::new().content(&antragstext).tts(true);
     thread.clone().id.send_message(&ctx.http(), builder).await?;
 
     let builder = CreateMessage::new()
@@ -147,7 +152,10 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
 pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let mut channel = ctx.guild_channel().await.unwrap();
 
-    if channel.kind != ChannelType::PublicThread && channel.kind != ChannelType::PrivateThread && channel.kind != ChannelType::NewsThread {
+    if channel.kind != ChannelType::PublicThread
+        && channel.kind != ChannelType::PrivateThread
+        && channel.kind != ChannelType::NewsThread
+    {
         return Err("This command can only be used in a thread".into());
     }
 
@@ -178,10 +186,13 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         println!("{}", i);
     }
     let name = modal.name;
-    
+
     let antragssteller = &split[&split.len() - 1].to_owned();
 
-    let antragstext = format!("Der Fachschaftsrat Informatik möge beschließen, dass:\n{}", &modal.antragstext);
+    let antragstext = format!(
+        "Der Fachschaftsrat Informatik möge beschließen, dass:\n{}",
+        &modal.antragstext
+    );
 
     let begruendung = &modal
         .begründung
@@ -199,7 +210,7 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     messages[2].edit(&ctx.http(), builder).await?;
 
     //get the message that startet the thread
-   let message = channel.id.message(&ctx.http(), messages[0].id).await?;
+    let message = channel.id.message(&ctx.http(), messages[0].id).await?;
     let messagetype = message.kind;
 
     //if the message is a thread starter message, edit the content
@@ -231,11 +242,13 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
 async fn abmelden(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let person = database::get_name(ctx.data().conn.clone(), ctx.author().id).await;
     let Ok(person) = person else {
-        let builder = CreateMessage::new()
-            .content("Du bist nicht in der Datenbank")
-            .flags(MessageFlags::EPHEMERAL);
-        let channel_id = ctx.interaction.channel_id;
-        channel_id.send_message(&ctx.http(), builder).await?;
+        ctx.send(
+            CreateReply::default()
+                .content("Du bist nicht in der Datenbank")
+                .ephemeral(true),
+        )
+        .await
+        .unwrap();
         return Ok(());
     };
     rest::put_abmeldung(person.name.clone()).await;
