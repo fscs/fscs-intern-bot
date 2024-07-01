@@ -20,7 +20,7 @@ pub async fn get_persons() -> Vec<Person> {
     persons
 }
 
-pub async fn create_antrag(antrag: Antrag) -> Antrag {
+pub async fn create_antrag(antrag: CreateAntrag) -> EditAntrag {
     let url = std::env::var("API_URL").expect("missing API URL");
     let token = keycloak::get_token().await.unwrap();
     println!("{:?}", serde_json::to_string(&antrag).unwrap());
@@ -45,12 +45,12 @@ pub async fn create_antrag(antrag: Antrag) -> Antrag {
 
     println!("{:?}", response);
 
-    let antrag: Antrag = serde_json::from_str(&response).unwrap();
+    let antrag: EditAntrag = serde_json::from_str(&response).unwrap();
 
     antrag
 }
 
-pub async fn edit_antrag(antrag: Antrag) {
+pub async fn edit_antrag(antrag: EditAntrag) {
     let url = std::env::var("API_URL").expect("missing API URL");
     let token = keycloak::get_token().await.unwrap();
     let respo = reqwest::Client::new()

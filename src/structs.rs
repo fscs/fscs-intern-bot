@@ -2,7 +2,17 @@ use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
-pub struct Antrag {
+pub struct CreateAntrag {
+    pub id: Option<Uuid>,
+    pub titel: String,
+    pub antragstext: String,
+    pub begründung: String,
+    pub antragssteller: Option<String>,
+    pub top_type: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
+pub struct EditAntrag {
     pub id: Option<Uuid>,
     pub titel: String,
     pub antragstext: String,

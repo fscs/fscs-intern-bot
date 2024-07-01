@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::time::Duration;
 
 use poise::serenity_prelude::{
@@ -11,6 +12,23 @@ type ApplicationContext<'a> = poise::ApplicationContext<'a, Data, Error>;
 #[derive(Debug)]
 pub struct Data {
     conn: sqlx::SqlitePool,
+}
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum TopType {
+    #[default]
+    Normal,
+    Information,
+    Sonstiges,
+}
+
+impl Display for TopType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TopType::Normal => write!(f, "normal"),
+            TopType::Information => write!(f, "information"),
+            TopType::Sonstiges => write!(f, "sonstiges"),
+        }
+    }
 }
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
@@ -26,7 +44,7 @@ async fn main() {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![antrag(), edit(), abmelden()],
+            commands: vec![antrag(), edit(), abmelden(), information(), sonstiges()],
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
@@ -77,6 +95,26 @@ struct EditTopModal {
 
 #[poise::command(slash_command)]
 pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
+    let top_type = TopType::Normal;
+    create_antrag(ctx, top_type).await;
+    Ok(())
+}
+
+#[poise::command(slash_command)]
+pub async fn information(ctx: ApplicationContext<'_>) -> Result<(), Error> {
+    let top_type = TopType::Information;
+    create_antrag(ctx, top_type).await;
+    Ok(())
+}
+
+#[poise::command(slash_command)]
+pub async fn sonstiges(ctx: ApplicationContext<'_>) -> Result<(), Error> {
+    let top_type = TopType::Sonstiges;
+    create_antrag(ctx, top_type).await;
+    Ok(())
+}
+
+pub async fn create_antrag(ctx: ApplicationContext<'_>, top_type: TopType) -> Result<(), Error> {
     let top = CreateTopModal::execute_with_defaults(
         ctx,
         CreateTopModal {
@@ -131,12 +169,13 @@ pub async fn antrag(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         .tts(true);
     thread.id.send_message(&ctx.http(), builder).await?;
 
-    let antrag = structs::Antrag {
+    let antrag = structs::CreateAntrag {
         id: None,
         titel: name,
         antragstext,
         begründung: begruendung.to_string(),
         antragssteller: Some(antragssteller.name),
+        top_type: top_type.to_string(),
     };
 
     let resp = rest::create_antrag(antrag).await;
@@ -223,7 +262,7 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         parentmessage.edit(&ctx.http(), builder).await?;
     }
 
-    let antrag = structs::Antrag {
+    let antrag = structs::EditAntrag {
         id: database::get_antrag_thread(ctx.data().conn.clone(), channel.id.into())
             .await
             .unwrap(),
