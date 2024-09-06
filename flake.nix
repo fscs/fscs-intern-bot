@@ -70,7 +70,8 @@
         my-crate = craneLib.buildPackage (commonArgs // {
           inherit cargoArtifacts;
         });
-      in rec
+      in
+      rec
       {
         checks = {
           # Build the crate as part of `nix flake check` for convenience
@@ -119,24 +120,30 @@
         defaultPackage = my-crate;
         packages = {
 
-            docker = pkgs.dockerTools.buildImage {
-                name = "fscs-intern-bot";
-                tag = "latest";
+          docker = pkgs.dockerTools.buildImage {
+            name = "fscs-intern-bot";
+            tag = "latest";
 
-                copyToRoot = pkgs.buildEnv {
-                    name = "image-root";
-                    paths = [ 
-                        pkgs.cacert
-                    ];
-                    pathsToLink = [ "/bin" ];
-                };
-
-                config = {
-                    WorkingDir = "/";
-                    Env = ["SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"];
-                    Cmd = ["${defaultPackage}/bin/top-manager-discord"];
-                };
+            copyToRoot = pkgs.buildEnv {
+              name = "image-root";
+              paths = [
+                pkgs.cacert
+              ];
+              pathsToLink = [ "/bin" ];
             };
+
+            config = {
+              WorkingDir = "/";
+              Env = [ "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt" ];
+              Cmd = [ "${defaultPackage}/bin/top-manager-discord" ];
+            };
+          };
+
+          fscs-intern-bot = pkgs.writeScriptBin "serve" ''
+            #!/usr/bin/env bash
+            ${defaultPackage}/bin/top-manager-discord
+          '';
+
         } // lib.optionalAttrs (!pkgs.stdenv.isDarwin) {
           my-crate-llvm-coverage = craneLibLLvmTools.cargoLlvmCov (commonArgs // {
             inherit cargoArtifacts;
