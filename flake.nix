@@ -3,29 +3,22 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
 
     crane = {
       url = "github:ipetkov/crane";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    fenix = {
-      url = "github:nix-community/fenix";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.rust-analyzer-src.follows = "";
-    };
-
-    flake-utils.url = "github:numtide/flake-utils";
-
-    advisory-db = {
-      url = "github:rustsec/advisory-db";
-      flake = false;
-    };
   };
 
-  outputs = { self, nixpkgs, crane, fenix, flake-utils, advisory-db, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
+  outputs = {
+    self,
+    nixpkgs,
+    crane,
+    flake-utils,
+    ...
+  }:
+    flake-utils.lib.eachDefaultSystem (system: let
         pkgs = nixpkgs.legacyPackages.${system};
 
         inherit (pkgs) lib;
@@ -42,19 +35,22 @@
             pkgs.pkg-config
           ];
 
-          buildInputs = [
-            pkgs.openssl
-            # Add additional build inputs here
-          ] ++ lib.optionals pkgs.stdenv.isDarwin [
-            # Additional darwin specific inputs can be set here
-            pkgs.libiconv
-          ];
+          buildInputs =
+            [
+              pkgs.openssl
+              # Add additional build inputs here
+            ]
+            ++ lib.optionals pkgs.stdenv.isDarwin [
+              # Additional darwin specific inputs can be set here
+              pkgs.libiconv
+            ];
 
           # Additional environment variables can be set directly
           # MY_CUSTOM_VAR = "some value";
         };
 
-        craneLibLLvmTools = craneLib.overrideToolchain
+        craneLibLLvmTools =
+          craneLib.overrideToolchain
           (fenix.packages.${system}.complete.withComponents [
             "cargo"
             "llvm-tools"
@@ -67,104 +63,16 @@
 
         # Build the actual crate itself, reusing the dependency
         # artifacts from above.
-        my-crate = craneLib.buildPackage (commonArgs // {
-          inherit cargoArtifacts;
-        });
-      in
-      rec
+        my-crate = craneLib.buildPackage (commonArgs
+          // {
+            inherit cargoArtifacts;
+          });
+      in rec
       {
-        checks = {
-          # Build the crate as part of `nix flake check` for convenience
-          inherit my-crate;
-
-          # Run clippy (and deny all warnings) on the crate source,
-          # again, reusing the dependency artifacts from above.
-          #
-          # Note that this is done as a separate derivation so that
-          # we can block the CI if there are issues here, but not
-          # prevent downstream consumers from building our crate by itself.
-          my-crate-clippy = craneLib.cargoClippy (commonArgs // {
-            inherit cargoArtifacts;
-            cargoClippyExtraArgs = "--all-targets -- --deny warnings";
-          });
-
-          my-crate-doc = craneLib.cargoDoc (commonArgs // {
-            inherit cargoArtifacts;
-          });
-
-          # Check formatting
-          my-crate-fmt = craneLib.cargoFmt {
-            inherit src;
-          };
-
-          # Audit dependencies
-          my-crate-audit = craneLib.cargoAudit {
-            inherit src advisory-db;
-          };
-
-          # Audit licenses
-          my-crate-deny = craneLib.cargoDeny {
-            inherit src;
-          };
-
-          # Run tests with cargo-nextest
-          # Consider setting `doCheck = false` on `my-crate` if you do not want
-          # the tests to run twice
-          my-crate-nextest = craneLib.cargoNextest (commonArgs // {
-            inherit cargoArtifacts;
-            partitions = 1;
-            partitionType = "count";
-          });
-        };
-
-        defaultPackage = my-crate;
-        packages = {
-
-          docker = pkgs.dockerTools.buildImage {
-            name = "fscs-intern-bot";
-            tag = "latest";
-
-            copyToRoot = pkgs.buildEnv {
-              name = "image-root";
-              paths = [
-                pkgs.cacert
-              ];
-              pathsToLink = [ "/bin" ];
-            };
-
-            config = {
-              WorkingDir = "/";
-              Env = [ "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt" ];
-              Cmd = [ "${defaultPackage}/bin/top-manager-discord" ];
-            };
-          };
-
-          fscs-intern-bot = pkgs.writeScriptBin "serve" ''
-            #!/usr/bin/env bash
-            ${defaultPackage}/bin/top-manager-discord
-          '';
-
-        } // lib.optionalAttrs (!pkgs.stdenv.isDarwin) {
-          my-crate-llvm-coverage = craneLibLLvmTools.cargoLlvmCov (commonArgs // {
-            inherit cargoArtifacts;
-          });
-        };
+        packages.default = my-crate;
 
         apps.default = flake-utils.lib.mkApp {
           drv = my-crate;
-        };
-
-        devShells.default = craneLib.devShell {
-          # Inherit inputs from checks.
-          checks = self.checks.${system};
-
-          # Additional dev-shell environment variables can be set directly
-          # MY_CUSTOM_DEVELOPMENT_VAR = "something else";
-
-          # Extra inputs can be added here; cargo and rustc are provided by default.
-          packages = [
-            # pkgs.ripgrep
-          ];
         };
       });
 }
