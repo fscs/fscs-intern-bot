@@ -5,6 +5,8 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
 
+    fenix.url = "github:nix-community/fenix/monthly";
+
     crane = {
       url = "github:ipetkov/crane";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -16,6 +18,7 @@
     nixpkgs,
     crane,
     flake-utils,
+    fenix,
     ...
   }:
     flake-utils.lib.eachDefaultSystem (system: let
