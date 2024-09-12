@@ -3,7 +3,7 @@ deploy:
   only: 
     - master
   variables:
-    CI_NIX_UPDATE_INPUT: fscs-intern-bot
+    CI_NIX_UPDATE_INPUT: discord-intern-bot
   trigger:
     project: fscs/teenix
     strategy: depend
