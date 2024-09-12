@@ -1,7 +1,7 @@
 deploy:
   stage: deploy
   only: 
-    - main
+    - master
   variables:
     CI_NIX_UPDATE_INPUT: fscs-intern-bot
   trigger:
