@@ -1,42 +1,9 @@
-# This file is a template, and might need editing before it works on your project.
-# To contribute improvements to CI/CD templates, please follow the Development guide at:
-# https://docs.gitlab.com/ee/development/cicd/templates.html
-# This specific template is located at:
-# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Docker.gitlab-ci.yml
-
-# Build a Docker image with CI/CD and push to the GitLab registry.
-# Docker-in-Docker documentation: https://docs.gitlab.com/ee/ci/docker/using_docker_build.html
-#
-# This template uses one generic job with conditional builds
-# for the default branch and all other (MR) branches.
-stages:   
-  - build       # List of stages for jobs, and their order of execution
-  - deploy
-
-build-job:       # This job runs in the build stage, which runs first.
-  stage: build
-  image: nixos/nix
-  variables:
-    DOCKER_IMAGE_NAME: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
-  #  - main
-  script: |
-    echo $CI_REGISTRY
-    git config --get remote.origin.fetch
-    nix --extra-experimental-features "nix-command flakes" flake lock --update-input server --update-input theme
-    nix --extra-experimental-features "nix-command flakes" build .#docker
-    nix --extra-experimental-features "nix-command flakes" run nixpkgs#docker -- load < result
-    echo docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY >> run.sh
-    echo docker tag fscs-intern-bot:latest $DOCKER_IMAGE_NAME >> run.sh
-    echo docker push $DOCKER_IMAGE_NAME >> run.sh
-    chmod +x run.sh
-    nix --extra-experimental-features "nix-command flakes" shell nixpkgs#docker -c ./run.sh
-
-deploy-job:
+deploy:
   stage: deploy
-  only:
-      refs:
-        - master
-  script:
-    - apk --no-cache add curl
-    - curl --request POST --form "token=$TRIGGER_TOKEN" --form ref=main "https://git.hhu.de/api/v4/projects/4176/trigger/pipeline"
-  environment: production
+  only: 
+    - main
+  variables:
+    CI_NIX_UPDATE_INPUT: fscs-intern-bot
+  trigger:
+    project: fscs/teenix
+    strategy: depend
