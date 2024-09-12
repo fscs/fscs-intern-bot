@@ -12,7 +12,7 @@ pub struct User {
 }
 
 pub async fn connect() -> Result<SqlitePool, sqlx::Error> {
-    let db_url = "sqlite:///data/mappings.db";
+    let db_url = "sqlite://database.sqlite";
     if !Sqlite::database_exists(db_url).await.unwrap_or(false) {
         println!("Creating database {}", db_url);
         match Sqlite::create_database(db_url).await {
