@@ -79,7 +79,7 @@ pub async fn create_antrag(antrag: CreateAntrag) -> EditAntrag {
         .await
         .unwrap();
 
-    let top: Top = serde_json::from_str(&sitzung_response).unwrap();
+    let top: Top = serde_json::from_str(&top_response).unwrap();
 
     client
         .patch(format!("{},/api/sitzungen/{}/tops/{}/assoc/", url, sitzung.id, top.id))
