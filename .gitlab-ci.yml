@@ -5,7 +5,7 @@ default:
     mkdir -p ~/.config/nix
     echo "experimental-features = nix-command flakes" > ~/.config/nix/nix.conf
 
-build:
+flake-check:
   stage: build
   script: |
     nix flake check
