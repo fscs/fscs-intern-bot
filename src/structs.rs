@@ -1,23 +1,21 @@
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
 pub struct CreateAntrag {
-    pub id: Option<Uuid>,
     pub titel: String,
     pub antragstext: String,
     pub begründung: String,
-    pub antragssteller: Option<String>,
-    pub top_type: String,
+    pub antragssteller: Vec<Uuid>,
 }
 
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
 pub struct EditAntrag {
-    pub id: Option<Uuid>,
+    pub id: Uuid,
     pub titel: String,
     pub antragstext: String,
     pub begründung: String,
-    pub antragssteller: Option<String>,
+    pub creators: Vec<Uuid>,
 }
 
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone)]
@@ -29,13 +27,12 @@ pub struct Person {
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone)]
 pub struct Sitzung {
     pub id: Uuid,
-    pub datum: NaiveDateTime,
-    pub name: String,
+    pub datetime: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
 pub struct Abmeldung {
-    pub ablaufdatum: NaiveDate,
-    pub anfangsdatum: NaiveDate,
+    pub ablaufdatum: DateTime<Utc>,
+    pub anfangsdatum: DateTime<Utc>,
     pub person_id: Uuid,
 }

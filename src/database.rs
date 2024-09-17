@@ -14,7 +14,6 @@ pub struct User {
 pub async fn connect() -> Result<SqlitePool, sqlx::Error> {
     let db_url = "sqlite://database.sqlite";
     if !Sqlite::database_exists(db_url).await.unwrap_or(false) {
-        println!("Creating database {}", db_url);
         match Sqlite::create_database(db_url).await {
             Ok(_) => println!("Create db success"),
             Err(error) => panic!("error: {}", error),
@@ -67,10 +66,7 @@ struct antragsid {
     thread_id: i64,
 }
 
-pub async fn get_antrag_thread(
-    conn: SqlitePool,
-    thread_id: i64,
-) -> Result<Option<Uuid>, sqlx::Error> {
+pub async fn get_antrag_thread(conn: SqlitePool, thread_id: i64) -> Result<Uuid, sqlx::Error> {
     let antrag =
         sqlx::query_as::<_, antragsid>("SELECT * FROM antragsthreads WHERE thread_id = $1")
             .bind(thread_id)
@@ -78,5 +74,5 @@ pub async fn get_antrag_thread(
             .await
             .unwrap();
 
-    Ok(Some(Uuid::parse_str(&antrag.antrag_id).unwrap()))
+    Ok(Uuid::parse_str(&antrag.antrag_id).unwrap())
 }

@@ -8,6 +8,8 @@ use poise::serenity_prelude::{
 type Context<'a> = poise::Context<'a, Data, Error>;
 
 use poise::{CreateReply, Modal};
+use rest::get_persons;
+use structs::Person;
 type ApplicationContext<'a> = poise::ApplicationContext<'a, Data, Error>;
 #[derive(Debug)]
 pub struct Data {
@@ -170,19 +172,15 @@ pub async fn create_antrag(ctx: ApplicationContext<'_>, top_type: TopType) -> Re
     thread.id.send_message(&ctx.http(), builder).await?;
 
     let antrag = structs::CreateAntrag {
-        id: None,
         titel: name,
         antragstext,
         begründung: begruendung.to_string(),
-        antragssteller: Some(antragssteller.name),
-        top_type: top_type.to_string(),
+        antragssteller: vec![antragssteller.id],
     };
 
     let resp = rest::create_antrag(antrag).await;
 
-    let _ =
-        database::map_antrag_thread(ctx.data().conn.clone(), resp.id.unwrap(), thread.id.into())
-            .await;
+    let _ = database::map_antrag_thread(ctx.data().conn.clone(), resp.id, thread.id.into()).await;
 
     Ok(())
 }
@@ -221,9 +219,6 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
     let parentchannel = channel.parent_id.unwrap();
     let parentmessage = parentchannel.message(&ctx.http(), threadid.get()).await?;
     let split: Vec<&str> = parentmessage.content.split(" - ").collect();
-    for i in &split {
-        println!("{}", i);
-    }
     let name = modal.name;
 
     let antragssteller = &split[&split.len() - 1].to_owned();
@@ -270,7 +265,12 @@ pub async fn edit(ctx: ApplicationContext<'_>) -> Result<(), Error> {
         titel: name,
         antragstext: antragstext.to_string(),
         begründung: begruendung.to_string(),
-        antragssteller: Some(antragssteller.to_string()),
+        creators: get_persons()
+            .await
+            .iter()
+            .filter(|person| person.name == *antragssteller)
+            .map(|person| person.id)
+            .collect(),
     };
 
     rest::edit_antrag(antrag).await;

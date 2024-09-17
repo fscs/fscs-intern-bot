@@ -5,15 +5,13 @@ use crate::{keycloak, structs::*};
 pub async fn get_persons() -> Vec<Person> {
     let url = std::env::var("API_URL").expect("missing API URL");
     let response = reqwest::Client::new()
-        .get(url + "/api/person/")
+        .get(url + "/api/persons/")
         .send()
         .await
         .unwrap()
         .text()
         .await
         .unwrap();
-
-    println!("{:?}", response);
 
     let persons: Vec<Person> = serde_json::from_str(&response).unwrap();
 
@@ -23,18 +21,10 @@ pub async fn get_persons() -> Vec<Person> {
 pub async fn create_antrag(antrag: CreateAntrag) -> EditAntrag {
     let url = std::env::var("API_URL").expect("missing API URL");
     let token = keycloak::get_token().await.unwrap();
-    println!("{:?}", serde_json::to_string(&antrag).unwrap());
     let response = reqwest::Client::new()
-        .put(url + "/api/topmanager/antrag/")
+        .post(url + "/api/anträge/")
         .header("Content-Type", "application/json")
-        .header(
-            "Cookie",
-            &format!(
-                "access_token={}; refresh_token={}",
-                token.token.secret(),
-                token.refresh_token.secret()
-            ),
-        )
+        .header("Cookie", &format!("access_token={};", token))
         .body(serde_json::to_string(&antrag).unwrap())
         .send()
         .await
@@ -42,8 +32,6 @@ pub async fn create_antrag(antrag: CreateAntrag) -> EditAntrag {
         .text()
         .await
         .unwrap();
-
-    println!("{:?}", response);
 
     let antrag: EditAntrag = serde_json::from_str(&response).unwrap();
 
@@ -53,34 +41,31 @@ pub async fn create_antrag(antrag: CreateAntrag) -> EditAntrag {
 pub async fn edit_antrag(antrag: EditAntrag) {
     let url = std::env::var("API_URL").expect("missing API URL");
     let token = keycloak::get_token().await.unwrap();
-    let respo = reqwest::Client::new()
-        .patch(url + "/api/topmanager/antrag/")
+    let _ = reqwest::Client::new()
+        .patch(url + &format!("/api/anträge/{}/", antrag.id))
         .header("Content-Type", "application/json")
-        .header(
-            "Cookie",
-            &format!(
-                "access_token={}; refresh_token={}",
-                token.token.secret(),
-                token.refresh_token.secret()
-            ),
+        .header("Cookie", &format!("access_token={};", token))
+        .body(
+            serde_json::json!({
+        "antragstext": antrag.antragstext,
+        "begründung": antrag.begründung,
+        "titel": antrag.titel})
+            .to_string(),
         )
-        .body(serde_json::to_string(&antrag).unwrap())
         .send()
         .await
         .unwrap()
         .text()
         .await
         .unwrap();
-    println!("{:?}", antrag);
-
-    println!("{:?}", respo);
 }
 
 pub async fn put_abmeldung(name: String) {
     let url = std::env::var("API_URL").expect("missing API URL");
     let persons = get_persons().await;
+    let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ");
     let next_sitzung = reqwest::Client::new()
-        .get(url.clone() + "/api/topmanager/next_sitzung/")
+        .get(url.clone() + &format!("/api/sitzungen/first-after/?timestamp={}", now))
         .send()
         .await
         .unwrap()
@@ -88,11 +73,10 @@ pub async fn put_abmeldung(name: String) {
         .await
         .unwrap();
 
-    println!("{:?}", next_sitzung);
     let next_sitzung: Sitzung = serde_json::from_str(&next_sitzung).unwrap();
     let abmeldung = Abmeldung {
-        ablaufdatum: next_sitzung.datum.into(),
-        anfangsdatum: next_sitzung.datum.into(),
+        ablaufdatum: next_sitzung.datetime.into(),
+        anfangsdatum: next_sitzung.datetime.into(),
         person_id: persons
             .iter()
             .find(|person| person.name == name)
@@ -101,22 +85,17 @@ pub async fn put_abmeldung(name: String) {
     };
     let token = keycloak::get_token().await.unwrap();
     let respo = reqwest::Client::new()
-        .put(url + "/api/abmeldungen/")
+        .put(url + &format!("/api/persons/{}/abmeldungen/", abmeldung.person_id))
         .header("Content-Type", "application/json")
-        .header(
-            "Cookie",
-            &format!(
-                "access_token={}; refresh_token={}",
-                token.token.secret(),
-                token.refresh_token.secret()
-            ),
-        )
-        .body(serde_json::to_string(&abmeldung).unwrap())
+        .header("Cookie", &format!("access_token={};", token))
+        .body(format!(
+            "{{\"start\":\"{}\",\"end\":\"{}\"}}",
+            abmeldung.anfangsdatum, abmeldung.ablaufdatum
+        ))
         .send()
         .await
         .unwrap()
         .text()
         .await
         .unwrap();
-    println!("{:?}", respo);
 }

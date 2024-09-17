@@ -1,133 +1,53 @@
 use std::collections::HashMap;
 
-use oauth2::basic::BasicClient;
-use oauth2::reqwest::async_http_client;
-use oauth2::AccessToken;
-use oauth2::AuthorizationCode;
-use oauth2::ClientId;
-use oauth2::ClientSecret;
-use oauth2::CsrfToken;
-use oauth2::HttpRequest;
-use oauth2::PkceCodeChallenge;
-use oauth2::RedirectUrl;
-use oauth2::RefreshToken;
-use oauth2::Scope;
-use oauth2::TokenResponse;
-use serde_json::json;
+use anyhow::Error;
+use oauth2::{
+    basic::BasicClient,
+    http::header::USER_AGENT,
+    reqwest::{async_http_client, http_client},
+    AuthUrl, ClientId, ClientSecret, RedirectUrl, ResourceOwnerPassword, ResourceOwnerUsername,
+    Scope, TokenResponse, TokenUrl,
+};
+use uuid::Uuid;
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct KeycloakConfig {
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+pub struct WebsiteConfig {
     pub url: String,
-    pub realm: String,
     pub username: String,
     pub password: String,
+    pub client_id: String,
+    pub client_secret: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-struct KeycloakUser {
-    id: String,
-    username: String,
-    email: Option<String>,
-    first_name: Option<String>,
-    last_name: Option<String>,
-    enabled: bool,
-}
-
-pub struct KeycloakClient {
-    pub token: AccessToken,
-    pub refresh_token: RefreshToken,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq)]
-struct KeycloakRole {
-    id: String,
+struct WebsiteUser {
+    id: Uuid,
     name: String,
 }
 
-pub async fn get_token() -> anyhow::Result<KeycloakClient> {
+pub async fn get_token() -> Result<String, Error> {
+    let clientid_env = std::env::var("CLIENT_ID").expect("No CLIENT_ID set");
+    let clientsecret_env = std::env::var("CLIENT_SECRET").expect("No CLIENT_SECRET set");
     let username_env = std::env::var("USERNAME").expect("No USERNAME set");
     let password_env = std::env::var("PASSWORD").expect("No PASSWORD set");
-    let keycloak_config = KeycloakConfig {
-        url: "https://login.inphima.de/auth".to_string(),
-        realm: "FSCS-Intern".to_string(),
-        username: username_env,
-        password: password_env,
-    };
-    let client = KeycloakClient::new(
-        keycloak_config.url.clone(),
-        keycloak_config.realm.clone(),
-        keycloak_config.username.clone(),
-        keycloak_config.password.clone(),
-    )
-    .await?;
+    let oauth = BasicClient::new(
+        ClientId::new(clientid_env),
+        Some(ClientSecret::new(clientsecret_env)),
+        AuthUrl::new("https://auth.inphima.de/application/o/authorize/".to_string())?,
+        Some(TokenUrl::new(
+            "https://auth.inphima.de/application/o/token/".to_string(),
+        )?),
+    );
 
-    Ok(client)
-}
-
-impl KeycloakClient {
-    async fn new(
-        base_url: String,
-        realm: String,
-        user: String,
-        password: String,
-    ) -> anyhow::Result<Self> {
-        let client_id = std::env::var("CLIENT_ID").expect("No CLIENT ID set");
-        let client_secret = std::env::var("CLIENT_SECRET").expect("No CLIENT SECRET set");
-
-        let client = BasicClient::new(
-            ClientId::new(client_id),
-            Some(ClientSecret::new(client_secret)),
-            oauth2::AuthUrl::new(format!(
-                "{}/realms/{}/protocol/openid-connect/auth",
-                base_url, realm
-            ))
-            .unwrap(),
-            Some(
-                oauth2::TokenUrl::new(format!(
-                    "{}/realms/{}/protocol/openid-connect/token",
-                    base_url, realm
-                ))
-                .unwrap(),
-            ),
+    let token = oauth
+        .exchange_password(
+            &ResourceOwnerUsername::new(username_env),
+            &ResourceOwnerPassword::new(password_env),
         )
-        .set_redirect_uri(RedirectUrl::new("https://new.hhu-fscs.de/".to_string())?);
-        let token = client
-            .exchange_password(
-                &oauth2::ResourceOwnerUsername::new(user.clone()),
-                &oauth2::ResourceOwnerPassword::new(password.clone()),
-            )
-            .add_scope(Scope::new("openid".to_string()))
-            .request_async(async_http_client)
-            .await
-            .err();
+        .add_scope(Scope::new("profile".to_string()))
+        .add_scope(Scope::new("openid".to_string()))
+        .request_async(async_http_client)
+        .await;
 
-        println!("{:?}", token);
-        let token = client
-            .exchange_password(
-                &oauth2::ResourceOwnerUsername::new(user.clone()),
-                &oauth2::ResourceOwnerPassword::new(password.clone()),
-            )
-            .add_scope(Scope::new("openid".to_string()))
-            .request_async(async_http_client)
-            .await?
-            .access_token()
-            .clone();
-
-        let refreshtoken = client
-            .exchange_password(
-                &oauth2::ResourceOwnerUsername::new(user.clone()),
-                &oauth2::ResourceOwnerPassword::new(password.clone()),
-            )
-            .add_scope(Scope::new("openid".to_string()))
-            .request_async(async_http_client)
-            .await?
-            .refresh_token()
-            .unwrap()
-            .clone();
-
-        Ok(KeycloakClient {
-            token,
-            refresh_token: refreshtoken,
-        })
-    }
+    Ok(token.unwrap().access_token().secret().to_string())
 }
