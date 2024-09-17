@@ -19,13 +19,15 @@ pub async fn get_persons() -> Vec<Person> {
 }
 
 pub async fn create_antrag(antrag: CreateAntrag) -> EditAntrag {
-    let url = "https://fscs.hhu.de/api/anträge/";
+    let url = "https://fscs.hhu.de";
     let token = keycloak::get_token().await.unwrap();
-    
+
     println!("{:?}", serde_json::to_string(&antrag).unwrap());
-    
-    let response = reqwest::Client::new()
-        .post(url)
+
+    let client = reqwest::Client::new();
+
+    let antrag_response = client
+        .post(format!("{}/api/anträge/", url))
         .header("Content-Type", "application/json")
         .header("Cookie", &format!("access_token={};", token))
         .body(serde_json::to_string(&antrag).unwrap())
@@ -36,7 +38,62 @@ pub async fn create_antrag(antrag: CreateAntrag) -> EditAntrag {
         .await
         .unwrap();
 
-    let antrag: EditAntrag = serde_json::from_str(&response).unwrap();
+    let antrag: EditAntrag = serde_json::from_str(&antrag_response).unwrap();
+
+    let local = chrono::Local::now();
+
+    let sitzung_response = client
+        .post(
+            format!(
+                "{}/api/sitzungen/first-after/?timestamp={}",
+                url,
+                local.format("%Y-%m-%dT%H:%M:%SZ")
+            )
+        )
+        .header("Content-Type", "application/json")
+        .header("Cookie", &format!("access_token={};", token))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    let sitzung: Sitzung = serde_json::from_str(&sitzung_response).unwrap();
+
+    let top_response = client
+        .post(format!("{}/api/sitzungen/{}/tops/", url, sitzung.id))
+        .header("Content-Type", "application/json")
+        .header("Cookie", &format!("access_token={};", token))
+        .body(
+            serde_json::json!({
+                "kind": "normal",
+                "name": antrag.titel,
+            })
+            .to_string(),
+        )
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    let top: Top = serde_json::from_str(&sitzung_response).unwrap();
+
+    client
+        .patch(format!("{},/api/sitzungen/{}/tops/{}/assoc/", url, sitzung.id, top.id))
+        .header("Content-Type", "application/json")
+        .header("Cookie", &format!("access_token={};", token))
+        .body(
+            serde_json::json!({
+                "antrag_id": antrag.id
+            })
+            .to_string(),
+        )
+        .send()
+        .await
+        .unwrap();
 
     antrag
 }

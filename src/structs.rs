@@ -31,6 +31,11 @@ pub struct Sitzung {
     pub datetime: DateTime<Utc>,
 }
 
+#[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone)]
+pub struct Top {
+    pub id: Uuid,
+}
+
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
 pub struct Abmeldung {
     pub ablaufdatum: DateTime<Utc>,
