@@ -83,6 +83,8 @@ pub async fn put_abmeldung(name: String) {
             .expect("Person not found")
             .id,
     };
+
+    println!("{:?}", abmeldung);
     let token = keycloak::get_token().await.unwrap();
     let respo = reqwest::Client::new()
         .put(url + &format!("/api/persons/{}/abmeldungen/", abmeldung.person_id))
@@ -90,7 +92,8 @@ pub async fn put_abmeldung(name: String) {
         .header("Cookie", &format!("access_token={};", token))
         .body(format!(
             "{{\"start\":\"{}\",\"end\":\"{}\"}}",
-            abmeldung.anfangsdatum, abmeldung.ablaufdatum
+            abmeldung.anfangsdatum.date_naive(),
+            abmeldung.ablaufdatum.date_naive()
         ))
         .send()
         .await
@@ -98,4 +101,6 @@ pub async fn put_abmeldung(name: String) {
         .text()
         .await
         .unwrap();
+
+    println!("{respo}");
 }
