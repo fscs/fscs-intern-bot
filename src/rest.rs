@@ -43,7 +43,7 @@ pub async fn create_antrag(antrag: CreateAntrag) -> EditAntrag {
     let local = chrono::Local::now();
 
     let sitzung_response = client
-        .post(
+        .get(
             format!(
                 "{}/api/sitzungen/first-after/?timestamp={}",
                 url,
