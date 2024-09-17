@@ -14,7 +14,6 @@
   };
 
   outputs = {
-    self,
     nixpkgs,
     crane,
     flake-utils,
@@ -22,60 +21,53 @@
     ...
   }:
     flake-utils.lib.eachDefaultSystem (system: let
-        pkgs = nixpkgs.legacyPackages.${system};
+      pkgs = nixpkgs.legacyPackages.${system};
 
-        inherit (pkgs) lib;
+      inherit (pkgs) lib;
 
-        craneLib = crane.lib.${system};
-        src = craneLib.cleanCargoSource (craneLib.path ./.);
+      craneLib = crane.lib.${system};
+      src = craneLib.cleanCargoSource (craneLib.path ./.);
 
-        # Common arguments can be set here to avoid repeating them later
-        commonArgs = {
-          inherit src;
-          strictDeps = true;
+      # Common arguments can be set here to avoid repeating them later
+      commonArgs = {
+        inherit src;
+        strictDeps = true;
 
-          nativeBuildInputs = [
-            pkgs.pkg-config
+        nativeBuildInputs = [
+          pkgs.pkg-config
+        ];
+
+        buildInputs =
+          [
+            pkgs.openssl
+            # Add additional build inputs here
+          ]
+          ++ lib.optionals pkgs.stdenv.isDarwin [
+            # Additional darwin specific inputs can be set here
+            pkgs.libiconv
           ];
 
-          buildInputs =
-            [
-              pkgs.openssl
-              # Add additional build inputs here
-            ]
-            ++ lib.optionals pkgs.stdenv.isDarwin [
-              # Additional darwin specific inputs can be set here
-              pkgs.libiconv
-            ];
+        # Additional environment variables can be set directly
+        # MY_CUSTOM_VAR = "some value";
+      };
 
-          # Additional environment variables can be set directly
-          # MY_CUSTOM_VAR = "some value";
-        };
+      # Build *just* the cargo dependencies, so we can reuse
+      # all of that work (e.g. via cachix) when running in CI
+      cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
-        craneLibLLvmTools =
-          craneLib.overrideToolchain
-          (fenix.packages.${system}.complete.withComponents [
-            "cargo"
-            "llvm-tools"
-            "rustc"
-          ]);
+      # Build the actual crate itself, reusing the dependency
+      # artifacts from above.
+      my-crate = craneLib.buildPackage (commonArgs
+        // {
+          inherit cargoArtifacts;
+        });
+    in {
+      checks.build = my-crate;
+    
+      packages.default = my-crate;
 
-        # Build *just* the cargo dependencies, so we can reuse
-        # all of that work (e.g. via cachix) when running in CI
-        cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-
-        # Build the actual crate itself, reusing the dependency
-        # artifacts from above.
-        my-crate = craneLib.buildPackage (commonArgs
-          // {
-            inherit cargoArtifacts;
-          });
-      in rec
-      {
-        packages.default = my-crate;
-
-        apps.default = flake-utils.lib.mkApp {
-          drv = my-crate;
-        };
-      });
+      apps.default = flake-utils.lib.mkApp {
+        drv = my-crate;
+      };
+    });
 }

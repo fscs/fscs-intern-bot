@@ -3,9 +3,9 @@ use serde_json::json;
 use crate::{keycloak, structs::*};
 
 pub async fn get_persons() -> Vec<Person> {
-    let url = std::env::var("API_URL").expect("missing API URL");
+    let url = "https://fscs.hhu.de/api/persons/";
     let response = reqwest::Client::new()
-        .get(url + "/api/persons/")
+        .get(url)
         .send()
         .await
         .unwrap()
@@ -19,10 +19,13 @@ pub async fn get_persons() -> Vec<Person> {
 }
 
 pub async fn create_antrag(antrag: CreateAntrag) -> EditAntrag {
-    let url = std::env::var("API_URL").expect("missing API URL");
+    let url = "https://fscs.hhu.de/api/anträge/";
     let token = keycloak::get_token().await.unwrap();
+    
+    println!("{:?}", serde_json::to_string(&antrag).unwrap());
+    
     let response = reqwest::Client::new()
-        .post(url + "/api/anträge/")
+        .post(url)
         .header("Content-Type", "application/json")
         .header("Cookie", &format!("access_token={};", token))
         .body(serde_json::to_string(&antrag).unwrap())

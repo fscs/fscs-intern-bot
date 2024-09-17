@@ -1,6 +1,7 @@
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
 pub struct CreateAntrag {
     pub titel: String,

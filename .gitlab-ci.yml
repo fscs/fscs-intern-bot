@@ -1,3 +1,15 @@
+default:
+  tags:
+    -nix
+  before_script: |
+    mkdir -p ~/.config/nix
+    echo "experimental-features = nix-command flakes" > ~/.config/nix/nix.conf
+
+build:
+  stage: build
+  script: |
+    nix flake check
+
 deploy:
   stage: deploy
   only: 
