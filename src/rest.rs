@@ -40,14 +40,14 @@ pub async fn create_antrag(antrag: CreateAntrag) -> EditAntrag {
 
     let antrag: EditAntrag = serde_json::from_str(&antrag_response).unwrap();
 
-    let local = chrono::Local::now();
+    let now = chrono::Utc::now();
 
     let sitzung_response = client
         .get(
             format!(
                 "{}/api/sitzungen/first-after/?timestamp={}",
                 url,
-                local.format("%Y-%m-%dT%H:%M:%SZ")
+                now.format("%Y-%m-%dT%H:%M:%SZ")
             )
         )
         .header("Content-Type", "application/json")
