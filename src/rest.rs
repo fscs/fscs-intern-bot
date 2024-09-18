@@ -82,7 +82,7 @@ pub async fn create_antrag(antrag: CreateAntrag) -> EditAntrag {
     let top: Top = serde_json::from_str(&top_response).unwrap();
 
     client
-        .patch(format!("{},/api/sitzungen/{}/tops/{}/assoc/", url, sitzung.id, top.id))
+        .patch(format!("{}/api/sitzungen/{}/tops/{}/assoc/", url, sitzung.id, top.id))
         .header("Content-Type", "application/json")
         .header("Cookie", &format!("access_token={};", token))
         .body(
