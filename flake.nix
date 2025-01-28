@@ -5,69 +5,65 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
 
-    fenix.url = "github:nix-community/fenix/monthly";
-
-    crane = {
-      url = "github:ipetkov/crane";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    crane.url = "github:ipetkov/crane";
   };
 
-  outputs = {
-    nixpkgs,
-    crane,
-    flake-utils,
-    fenix,
-    ...
-  }:
-    flake-utils.lib.eachDefaultSystem (system: let
-      pkgs = nixpkgs.legacyPackages.${system};
+  outputs =
+    {
+      nixpkgs,
+      crane,
+      flake-utils,
+      ...
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
 
-      inherit (pkgs) lib;
+        inherit (pkgs) lib;
 
-      craneLib = crane.lib.${system};
-      src = craneLib.cleanCargoSource (craneLib.path ./.);
+        craneLib = crane.mkLib pkgs;
+        src = craneLib.cleanCargoSource (craneLib.path ./.);
 
-      # Common arguments can be set here to avoid repeating them later
-      commonArgs = {
-        inherit src;
-        strictDeps = true;
+        # Common arguments can be set here to avoid repeating them later
+        commonArgs = {
+          inherit src;
+          strictDeps = true;
 
-        nativeBuildInputs = [
-          pkgs.pkg-config
-        ];
-
-        buildInputs =
-          [
-            pkgs.openssl
-            # Add additional build inputs here
-          ]
-          ++ lib.optionals pkgs.stdenv.isDarwin [
-            # Additional darwin specific inputs can be set here
-            pkgs.libiconv
+          nativeBuildInputs = [
+            pkgs.pkg-config
           ];
 
-        # Additional environment variables can be set directly
-        # MY_CUSTOM_VAR = "some value";
-      };
+          buildInputs =
+            []
+            ++ lib.optionals pkgs.stdenv.isDarwin [
+              # Additional darwin specific inputs can be set here
+              pkgs.libiconv
+            ];
 
-      # Build *just* the cargo dependencies, so we can reuse
-      # all of that work (e.g. via cachix) when running in CI
-      cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+          # Additional environment variables can be set directly
+          # MY_CUSTOM_VAR = "some value";
+        };
 
-      # Build the actual crate itself, reusing the dependency
-      # artifacts from above.
-      my-crate = craneLib.buildPackage (commonArgs
-        // {
-          inherit cargoArtifacts;
-        });
-    in {
-      checks.build = my-crate;
-    
-      packages.default = my-crate;
+        # Build *just* the cargo dependencies, so we can reuse
+        # all of that work (e.g. via cachix) when running in CI
+        cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
-      apps.default = flake-utils.lib.mkApp {
-        drv = my-crate;
-      };
-    });
+        # Build the actual crate itself, reusing the dependency
+        # artifacts from above.
+        my-crate = craneLib.buildPackage (
+          commonArgs
+          // {
+            inherit cargoArtifacts;
+
+            meta.mainProgram = "discord-intern-bot";
+          }
+        );
+      in
+      {
+        checks.build = my-crate;
+
+        packages.default = my-crate;
+      }
+    );
 }
